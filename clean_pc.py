@@ -16,10 +16,10 @@ import sys
 # FUNCTIONS ZONE
 
 ## Generic functions
-def display_sorted(dict_file):
+def display_sorted(dict_file, path):
     for value in sorted(dict_file, key=dict_file.get):
         if args.size:
-            display_size(value)
+            display_size(value, path)
         else:
             print(value)
 
@@ -49,8 +49,7 @@ def display_the_biggest_or_littlest(dict_file):
 
 # SETTING UP ARGUMENT PARSER
 parser = argparse.ArgumentParser()
-parser.add_argument("path", help="list all files on this path")
-parser.add_argument("-a", "--all", help="search on the whole system about the 10s biggest file", action="store_true")
+parser.add_argument("-p", "--path", help="list all files in the given file")
 parser.add_argument("-s", "--size", help="display the size of the file beside the name", action="store_true")
 parser.add_argument("-S", "--sort", help="display the files from the littlest size to the biggest size", action="store_true")
 parser.add_argument("-d", "--date", help="display the last time the file was modificated")
@@ -65,14 +64,17 @@ is_flag = False
 is_sort_flag = False
 is_big_little_flag = False
 
-if os.path.isdir(args.path):
+if args.path:
+    path = args.path
+else:
+    path = "/var/log"
+
+if os.path.isdir(path):
     file_dict = {}
-    for filename in os.listdir(args.path):
+    for filename in os.listdir(path):
+        filename = os.path.join(path, filename)
         file_dict[filename] = os.path.getsize(filename)
     for filename in file_dict:
-        if args.little:
-            is_flag = True
-
         if args.big or args.little:
             is_flag = True
             is_big_little_flag = True
