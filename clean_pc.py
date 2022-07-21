@@ -8,6 +8,7 @@
     -l: display the littlest file
 
 """
+import sqlite3
 import math
 import datetime
 import argparse
@@ -17,6 +18,55 @@ import sys
 # FUNCTIONS ZONE
 
 ## Generic functions
+def create_db(conn, cur):
+    cur.execute('''CREATE TABLE IF NOT EXISTS files
+                (filename, first_checkpoint, second_checkpoint, third_checkpoint)''')
+    print("[*] Table was created ! Check with: sqlite3 {}.db".format(args.save))
+    return conn, cur
+
+def print_the_db(conn, cur):
+    row = ()
+    with conn:
+        cur.execute("SELECT * FROM files")
+    row = cur.fetchone()
+
+def get_db_data(conn, cur, col):
+    with conn:
+        cur.execute("SELECT {} FROM files".format(col))
+    return cur.fetchone()[0] 
+
+def edit_checkpoint_size(conn, cur, data):
+    # check si le second checkpoint est vide ou pas
+    second_checkpoint = get_db_data(conn, cur, "second_checkpoint")
+    third_checkpoint = get_db_data(conn, cur, "third_checkpoint")
+    if not second_checkpoint:
+        for filename in data:
+            cur.execute("UPDATE files set second_checkpoint = '{}' where filename = '{}'".format(os.path.getsize(filename), filename))
+            print("[*] Database updated !")
+        return 0
+    if not third_checkpoint:
+        for filename in data:
+            cur.execute("UPDATE files set third_checkpoint = '{}' where filename = '{}'".format(os.path.getsize(filename), filename))
+            print("[*] Database updated bis!")
+        return 0
+    # check si le troisieme checkpoint vide ou pas
+    return 1
+
+def save_in_db(file_dict):
+    if os.path.exists("{}.db".format(args.save)):
+        conn = sqlite3.connect("{}.db".format(args.save))
+        cur = conn.cursor()
+        edit_checkpoint_size(conn, cur, file_dict)
+        # go to the second and third checkpoint
+    else:
+        conn = sqlite3.connect("{}.db".format(args.save))
+        cur = conn.cursor()
+        conn, cur = create_db(conn, cur) # Creation of the database
+        for data in file_dict:
+            cur.execute("INSERT INTO files (filename, first_checkpoint) VALUES ('{}', '{}')".format(data, file_dict[data]))
+        print("[*] Datas are saved in the database at : {}.db".format(args.save))
+        # create the database, and fill the first checkpoint
+    conn.commit()
 def display_date(file):
     getmtime_numeric = os.path.getmtime(file)
     last_modif = datetime.datetime.fromtimestamp(getmtime_numeric).replace(microsecond=0)
@@ -75,6 +125,7 @@ parser.add_argument("-S", "--sort", help="display the files from the littlest si
 parser.add_argument("-d", "--date", help="display the last time the file was modificated", action="store_true")
 parser.add_argument("-b", "--big", help="display the biggest file", action="store_true")
 parser.add_argument("-l", "--little", help="display the littlest file", action="store_true")
+parser.add_argument("--save", help="save file's data in a sqlite database (the given file)")
 
 args = parser.parse_args()
 
@@ -83,6 +134,7 @@ args = parser.parse_args()
 is_flag = False
 is_sort_flag = False
 is_big_little_flag = False
+is_db = False
 
 if args.path:
     path = args.path
@@ -95,6 +147,8 @@ if os.path.isdir(path):
         filename = os.path.join(path, filename)
         if (filename != '.' and filename != '..'):
             file_dict[filename] = os.path.getsize(filename)
+    if args.save:
+        is_db = True
     for filename in file_dict:
         if args.big or args.little:
             is_flag = True
@@ -109,8 +163,11 @@ if os.path.isdir(path):
             is_flag = True
         if args.date:
             display_date(filename)
-        if not is_flag:
+        if not is_flag and not is_db:
             print(filename)
+    
+    if is_db:
+        save_in_db(file_dict)
     if is_sort_flag:
         display_sorted(file_dict)
     if is_big_little_flag:
