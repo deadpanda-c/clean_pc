@@ -3,7 +3,7 @@
 import sqlite3
 import os
 import sys
-import time
+import datetime
 import argparse
 
 # --------------------------
@@ -46,6 +46,14 @@ def insert_into_table(conn, cur, sorted_dict):
             cur.execute("""
                 INSERT INTO file_p (absolute_path) VALUES ('{}')
                     """.format(abs_path))
+            cur.execute("""
+                INSERT INTO file_c (file_id, check_date, size) VALUES 
+                (
+                    (SELECT file_id from file_p where absolute_path = '{}'),
+                    DATE(),
+                    '{}'
+                )
+                    """.format(abs_path, size))
 def create_table(conn, cur):
     # first table
     cur.execute("""
@@ -57,7 +65,7 @@ def create_table(conn, cur):
     # second table
     cur.execute("""
             CREATE TABLE IF NOT EXISTS file_c (
-                child_id int IDENTITY(1, 1) PRIMARY KEY,
+                child_id INTEGER PRIMARY KEY AUTOINCREMENT,
                 file_id int NOT NULL,
                 check_date DATE NOT NULL,
                 size int NOT NULL,
