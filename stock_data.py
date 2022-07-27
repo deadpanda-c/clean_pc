@@ -36,7 +36,15 @@ def move_the_db_file(db_file):
         os.system("mkdir .clean_config")
     os.system("cp {} .clean_config".format(db_file))
     os.system("cp -r .clean_config {}".format(homedir))
-    print("file moved !")
+
+def get_file_ext(filename):
+    path_exploded = filename.split("/")
+    file = path_exploded[-1]
+    file_exploded = file.split(".")
+    if len(file_exploded) > 1:
+        return file_exploded[-1]
+    return "none"
+
 def insert_into_table(conn, cur, sorted_dict):
     if args.size_from:
         min_size = int(args.size_from)
@@ -46,35 +54,36 @@ def insert_into_table(conn, cur, sorted_dict):
         # 10 MB
 
     for filename, size in sorted_dict.items():
+        extension = get_file_ext(filename)
         abs_path = os.path.abspath(filename)
         if not os.path.exists(filename) or os.path.islink(filename):
             continue
         if size >= min_size:
             cur.execute("""
-                INSERT OR IGNORE INTO file_p (absolute_path) VALUES ('{}')
-                    """.format(abs_path))
+                INSERT OR IGNORE INTO file_p (absolute_path, extension) VALUES ('{}', '{}')
+                    """.format(abs_path, extension))
             cur.execute("""
                 INSERT INTO file_c (file_id, check_date, size) VALUES 
                 (
                     (SELECT file_id from file_p where absolute_path = '{}'),
-                    DATE(),
+                    '{}',
                     '{}'
                 )
-                    """.format(abs_path, size))
+                    """.format(abs_path, datetime.datetime.now().replace(microsecond=0), size))
 def create_table(conn, cur):
     # first table
     cur.execute("""
             CREATE TABLE IF NOT EXISTS file_p (
                 file_id INTEGER PRIMARY KEY AUTOINCREMENT,
-                absolute_path varchar(255) NOT NULL UNIQUE
+                absolute_path varchar(255) NOT NULL UNIQUE,
+                extension varchar(255) NOT NULL
             )
     """)
     # second table
     cur.execute("""
             CREATE TABLE IF NOT EXISTS file_c (
-                child_id INTEGER PRIMARY KEY AUTOINCREMENT,
                 file_id int NOT NULL,
-                check_date DATE NOT NULL,
+                check_date DATETIME DEFAULT CURRENT_TIMESTAMP, 
                 size int NOT NULL,
                 FOREIGN KEY (file_id) REFERENCES file_p (file_id)
             )
