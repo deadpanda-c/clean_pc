@@ -30,6 +30,13 @@ DICT_OF_FILES = {}
 #       FUNCTION ZONE
 # --------------------------
 
+def move_the_db_file(db_file):
+    homedir = os.path.expanduser("~")
+    if not os.path.isdir(".clean_config"):
+        os.system("mkdir .clean_config")
+    os.system("cp {} .clean_config".format(db_file))
+    os.system("cp -r .clean_config {}".format(homedir))
+    print("file moved !")
 def insert_into_table(conn, cur, sorted_dict):
     if args.size_from:
         min_size = int(args.size_from)
@@ -44,7 +51,7 @@ def insert_into_table(conn, cur, sorted_dict):
             continue
         if size >= min_size:
             cur.execute("""
-                INSERT INTO file_p (absolute_path) VALUES ('{}')
+                INSERT OR IGNORE INTO file_p (absolute_path) VALUES ('{}')
                     """.format(abs_path))
             cur.execute("""
                 INSERT INTO file_c (file_id, check_date, size) VALUES 
@@ -59,7 +66,7 @@ def create_table(conn, cur):
     cur.execute("""
             CREATE TABLE IF NOT EXISTS file_p (
                 file_id INTEGER PRIMARY KEY AUTOINCREMENT,
-                absolute_path varchar(255) NOT NULL
+                absolute_path varchar(255) NOT NULL UNIQUE
             )
     """)
     # second table
@@ -73,6 +80,10 @@ def create_table(conn, cur):
             )
     """)
 
+def check_if_in(conn, cur, sorted_dict):
+    cur.execute("SELECT * FROM file_p WHERE file_id = 1")
+    result = cur.fetchall()
+
 def connect_to_db(sorted_dict):
     if args.db_name:
         db_file = args.db_name
@@ -81,10 +92,11 @@ def connect_to_db(sorted_dict):
     conn = sqlite3.connect(db_file)
     cur = conn.cursor()
     create_table(conn, cur)
-    print("Table are created !")
     insert_into_table(conn, cur, sorted_dict)
+    check_if_in(conn, cur, sorted_dict)
     conn.commit()
     conn.close()
+    return db_file
 
 def sort_the_files():
     sorted_dict = {}
@@ -96,12 +108,8 @@ def sort_the_files():
 
 def check_invalid_path(path):
     if not os.path.exists(path):
-        print("[\033[31m\u2718\033[37m] Invalid path !", file=sys.stderr)
         exit(-1)
 
-def display_dict_content(dictionnary):
-    for key, value in dictionnary.items():
-        print("{} : {}".format(key, value))
 
 def list_files_from_path():
     for i in files:
@@ -110,35 +118,17 @@ def list_files_from_path():
             continue    
         DICT_OF_FILES[files_path] = os.path.getsize(files_path)
 
-def print_biggest_file(dict_file):
-    cpt = 0
-    if len(dict_file) > 10:
-        for key in dict_file:
-            if cpt == 10:
-                break
-            print(key)
-            cpt += 1
-    else:
-        for key in dict_file:
-            print(key)
-
 # -----------------------------
 #           START
 # -----------------------------
 
 check_invalid_path(PATH)
 
-print("Listing file...") # TO REMOVE !
 for root, cur_dir, files in os.walk(PATH):
     NB_OF_FILES += len(files)
     list_files_from_path()
 
-print("[\033[32m\u2714\033[37m] Listing completed !")
 
-print("Sorting...")
 sorted_dict = sort_the_files()
-print("Displaying...")
-print_biggest_file(sorted_dict)
-print("Connection to the db...")
-connect_to_db(sorted_dict)
-
+db_file = connect_to_db(sorted_dict)
+move_the_db_file(db_file)
