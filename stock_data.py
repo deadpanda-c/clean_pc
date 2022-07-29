@@ -32,11 +32,9 @@ DICT_OF_FILES = {}
 
 def move_the_db_file(db_file):
     homedir = os.path.expanduser("~")
-    if not os.path.isdir(".clean_config"):
-        os.system("mkdir .clean_config")
-    os.system("cp {} .clean_config".format(db_file))
-    os.system("cp -r .clean_config {}".format(homedir))
-
+    if not os.path.isdir("{}/.clean_config".format(homedir)):
+        os.system("mkdir {}/.clean_config".format(homedir))
+    os.system("cp {} {}/.clean_config".format(db_file, homedir))
 def get_file_ext(filename):
     path_exploded = filename.split("/")
     file = path_exploded[-1]
@@ -66,10 +64,10 @@ def insert_into_table(conn, cur, sorted_dict):
                 INSERT INTO file_c (file_id, check_date, size) VALUES 
                 (
                     (SELECT file_id from file_p where absolute_path = '{}'),
-                    '{}',
+                    DATETIME('now', '+2 hours', 'localtime'),
                     '{}'
                 )
-                    """.format(abs_path, datetime.datetime.now().replace(microsecond=0), size))
+                    """.format(abs_path, size))
 def create_table(conn, cur):
     # first table
     cur.execute("""
@@ -83,7 +81,7 @@ def create_table(conn, cur):
     cur.execute("""
             CREATE TABLE IF NOT EXISTS file_c (
                 file_id int NOT NULL,
-                check_date DATETIME DEFAULT CURRENT_TIMESTAMP, 
+                check_date DATETIME DEFAULT SESSIONTIMESTAMP, 
                 size int NOT NULL,
                 FOREIGN KEY (file_id) REFERENCES file_p (file_id)
             )
